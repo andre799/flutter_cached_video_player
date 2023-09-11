@@ -149,22 +149,20 @@ final class CachedVideoPlayer {
                         new DefaultDataSource.Factory(context, mediaDataSourceFactory))
                         .createMediaSource(MediaItem.fromUri(uri));
             case C.TYPE_HLS:
-                MediaItem mediaItem = MediaItem.fromUri(uri);
+                MediaItem mediaItem = new MediaItem.Builder()
+                        .setUri(uri)
+                        .setStreamKeys(
+                                Collections.singletonList(
+                                        new StreamKey(HlsMultivariantPlaylist.GROUP_INDEX_VARIANT, 0)))
+                        .build();
                  // Create a downloader for the first variant in a multivariant playlist.
                 HlsDownloader hlsDownloader =
-                    new HlsDownloader(
-                        new MediaItem.Builder()
-                            .setUri(uri)
-                            .setStreamKeys(
-                                Collections.singletonList(
-                                    new StreamKey(HlsMultivariantPlaylist.GROUP_INDEX_VARIANT, 0)))
-                            .build(), (CacheDataSource.Factory) mediaDataSourceFactory);
+                    new HlsDownloader(mediaItem
+                        , (CacheDataSource.Factory) mediaDataSourceFactory);
                 // Perform the download.
                 try {
                     hlsDownloader.download(null);
-                } catch (IOException e) {
-                    e.printStackTrace();
-                } catch (InterruptedException e) {
+                } catch (IOException | InterruptedException e) {
                     e.printStackTrace();
                 }
                 // Use the downloaded data for playback.
