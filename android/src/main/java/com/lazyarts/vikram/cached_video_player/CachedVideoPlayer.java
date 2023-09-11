@@ -21,25 +21,30 @@ import com.google.android.exoplayer2.PlaybackException;
 import com.google.android.exoplayer2.PlaybackParameters;
 import com.google.android.exoplayer2.Player;
 import com.google.android.exoplayer2.audio.AudioAttributes;
+import com.google.android.exoplayer2.offline.StreamKey;
 import com.google.android.exoplayer2.source.MediaSource;
 import com.google.android.exoplayer2.source.ProgressiveMediaSource;
 import com.google.android.exoplayer2.source.dash.DashMediaSource;
 import com.google.android.exoplayer2.source.dash.DefaultDashChunkSource;
 import com.google.android.exoplayer2.source.hls.HlsMediaSource;
+import com.google.android.exoplayer2.source.hls.offline.HlsDownloader;
+import com.google.android.exoplayer2.source.hls.playlist.HlsMultivariantPlaylist;
 import com.google.android.exoplayer2.source.smoothstreaming.DefaultSsChunkSource;
 import com.google.android.exoplayer2.source.smoothstreaming.SsMediaSource;
 import com.google.android.exoplayer2.upstream.DataSource;
 import com.google.android.exoplayer2.upstream.DefaultDataSource;
+import com.google.android.exoplayer2.upstream.cache.CacheDataSource;
 import com.google.android.exoplayer2.util.Util;
 
-import io.flutter.plugin.common.EventChannel;
-import io.flutter.view.TextureRegistry;
-
+import java.io.IOException;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+
+import io.flutter.plugin.common.EventChannel;
+import io.flutter.view.TextureRegistry;
 
 final class CachedVideoPlayer {
     private static final String FORMAT_SS = "ss";
@@ -144,8 +149,26 @@ final class CachedVideoPlayer {
                         new DefaultDataSource.Factory(context, mediaDataSourceFactory))
                         .createMediaSource(MediaItem.fromUri(uri));
             case C.TYPE_HLS:
-                return new HlsMediaSource.Factory(mediaDataSourceFactory)
-                        .createMediaSource(MediaItem.fromUri(uri));
+                MediaItem mediaItem = MediaItem.fromUri(uri);
+                 // Create a downloader for the first variant in a multivariant playlist.
+                HlsDownloader hlsDownloader =
+                    new HlsDownloader(
+                        new MediaItem.Builder()
+                            .setUri(uri)
+                            .setStreamKeys(
+                                Collections.singletonList(
+                                    new StreamKey(HlsMultivariantPlaylist.GROUP_INDEX_VARIANT, 0)))
+                            .build(), (CacheDataSource.Factory) mediaDataSourceFactory);
+                // Perform the download.
+                try {
+                    hlsDownloader.download(null);
+                } catch (IOException e) {
+                    e.printStackTrace();
+                } catch (InterruptedException e) {
+                    e.printStackTrace();
+                }
+                // Use the downloaded data for playback.
+                return new HlsMediaSource.Factory(mediaDataSourceFactory).createMediaSource(mediaItem);
             case C.TYPE_OTHER:
                 return new ProgressiveMediaSource.Factory(mediaDataSourceFactory)
                         .createMediaSource(MediaItem.fromUri(uri));
